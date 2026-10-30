@@ -126,7 +126,7 @@ function nodeCard(s) {
     const accent = barColor(worst);
     const failed =
         s.failedUnits && s.failedUnits.length
-            ? `<div style="margin-top:8px;font-size:11px;color:#c02b3c">⚠ 失败服务：${escapeHtml(s.failedUnits.join('、'))}</div>`
+            ? `<div style="margin-top:8px;font-size:11px;color:#c02b3c">失败服务：${escapeHtml(s.failedUnits.join('、'))}</div>`
             : '';
     return `<td width="50%" valign="top" style="padding:6px">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -183,7 +183,7 @@ function renderHtml(sum, { weekly }) {
                   </tr>`;
               })
               .join('')
-        : '<tr><td colspan="2" style="padding:16px;text-align:center;font-size:12px;color:#8a97ad">当前没有未处理告警 🎉</td></tr>';
+        : '<tr><td colspan="2" style="padding:16px;text-align:center;font-size:12px;color:#8a97ad">当前没有未处理告警</td></tr>';
 
     return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
