@@ -4,8 +4,12 @@
  *  - 静态资源（JS/CSS/图片）：缓存优先 + 后台更新
  *  - API / 安装脚本：不缓存
  */
-const CACHE = 'northland-monitor-v3';
+const CACHE = 'northland-monitor-v4';
 const SHELL = ['/', '/manifest.webmanifest', '/logo.png', '/logo-white-bg.png'];
+
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => undefined));

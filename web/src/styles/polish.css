@@ -1,0 +1,289 @@
+/* 视觉对齐精修：统一栅格、间距、侧栏与表格对齐 */
+
+/* ---------- 布局 ---------- */
+.app {
+  align-items: stretch;
+}
+
+.side {
+  width: 216px;
+  padding: 20px 14px 16px;
+  gap: 22px;
+}
+
+/* 主内容限制宽度并居中，避免超宽屏卡片被拉散 */
+.main {
+  width: 100%;
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 24px 28px 48px;
+}
+
+.page-head {
+  align-items: center;
+  margin-bottom: 20px;
+}
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 21px;
+}
+.page-title .btn {
+  font-weight: 500;
+}
+.page-sub {
+  margin-top: 5px;
+}
+
+/* ---------- 侧栏 ---------- */
+.nav {
+  gap: 2px;
+}
+.nav-item {
+  gap: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+}
+.nav-label {
+  flex: 1;
+  text-align: left;
+}
+.nav-item.is-active .nav-label {
+  font-weight: 600;
+}
+
+.side-foot {
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  margin: 0 2px;
+}
+.side-foot > .btn {
+  width: 100%;
+  text-align: center;
+}
+.side-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.side-user > .mono {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.side-user > .btn {
+  flex: none;
+  width: auto;
+  padding: 5px 10px;
+}
+.side-version {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 卡片与栅格 ---------- */
+.card {
+  padding: 18px 20px;
+}
+.card-head {
+  margin-bottom: 14px;
+  min-height: 26px;
+}
+.card-title {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.grid {
+  gap: 16px;
+}
+.grid-stats {
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+}
+.grid-nodes {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+.stat {
+  gap: 4px;
+  padding: 16px 18px;
+}
+.stat-value {
+  font-size: 24px;
+}
+.stat-label {
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- 节点卡片内部对齐 ---------- */
+.node-card {
+  gap: 14px;
+}
+.node-head {
+  align-items: flex-start;
+}
+.node-spec {
+  gap: 16px;
+  font-size: 11.5px;
+}
+.metric-line {
+  margin: 9px 0;
+}
+.metric-line .k {
+  width: 42px;
+  font-size: 11.5px;
+}
+.metric-line .v {
+  width: 104px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+/* ---------- 表格 ---------- */
+.table th {
+  padding: 9px 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.table td {
+  padding: 9px 12px;
+  font-size: 12.5px;
+}
+.table th:first-child,
+.table td:first-child {
+  padding-left: 4px;
+}
+.table th:last-child,
+.table td:last-child {
+  padding-right: 4px;
+  text-align: right;
+}
+.table td .row {
+  justify-content: flex-end;
+}
+.mono {
+  font-size: 11px;
+}
+
+/* ---------- 表单 ---------- */
+.field > label {
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+}
+.input,
+.select {
+  height: 36px;
+  padding: 0 11px;
+  font-size: 12.5px;
+}
+.row {
+  gap: 8px;
+}
+.btn {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  font-size: 12.5px;
+}
+.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11.5px;
+}
+
+/* ---------- 徽标与标签 ---------- */
+.pill {
+  height: 21px;
+  padding: 0 9px;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+.pill::before {
+  width: 5px;
+  height: 5px;
+}
+.tabs {
+  padding: 3px;
+  gap: 2px;
+}
+.tab {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---------- 详情页 ---------- */
+.page-title .btn.btn-sm {
+  height: 26px;
+}
+.pre {
+  font-size: 11px;
+  line-height: 1.75;
+  padding: 14px 16px;
+}
+
+/* ---------- 浅色主题细节 ---------- */
+[data-theme='light'] .side {
+  background: linear-gradient(180deg, #ffffff 0%, #f4f7fd 100%);
+  border-right-color: rgba(20, 40, 90, 0.1);
+}
+[data-theme='light'] .nav-item:hover {
+  background: rgba(27, 69, 184, 0.06);
+}
+[data-theme='light'] .card {
+  background: #ffffff;
+  border-color: rgba(20, 40, 90, 0.08);
+}
+[data-theme='light'] .table th {
+  background: rgba(240, 244, 252, 0.9);
+}
+[data-theme='light'] .pre {
+  background: #f6f8fd;
+  border-color: rgba(20, 40, 90, 0.08);
+}
+[data-theme='light'] .empty {
+  background: rgba(246, 248, 253, 0.6);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1200px) {
+  .main {
+    padding: 20px 20px 40px;
+  }
+}
+@media (max-width: 860px) {
+  .side {
+    width: 100%;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .side-foot {
+    display: none;
+  }
+  .nav-item {
+    padding: 8px 12px;
+  }
+  .main {
+    max-width: none;
+    padding: 16px 14px 36px;
+  }
+  .table th,
+  .table td {
+    padding: 8px 8px;
+  }
+}

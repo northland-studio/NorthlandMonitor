@@ -34,7 +34,28 @@ app.use(express.json({ limit: '4mb' }));
 app.use('/install', express.static(INSTALL_DIR, { fallthrough: true }));
 
 if (fs.existsSync(WEB_DIR)) {
-    app.use(express.static(WEB_DIR, { index: 'index.html', maxAge: '1h' }));
+    // 缓存策略：
+    //  - 带 hash 的 /assets/*  → 长期强缓存
+    //  - index.html / sw.js / manifest → 不缓存，保证发版立即生效
+    //  - 其他静态文件（logo、背景图）→ 1 小时
+    app.use(
+        express.static(WEB_DIR, {
+            index: false,
+            etag: true,
+            setHeaders(res, filePath) {
+                const rel = path.relative(WEB_DIR, filePath).split(path.sep).join('/');
+                if (rel === 'sw.js' || rel === 'manifest.webmanifest' || rel.endsWith('.html')) {
+                    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                    return;
+                }
+                if (rel.startsWith('assets/')) {
+                    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+                    return;
+                }
+                res.setHeader('Cache-Control', 'public, max-age=3600');
+            }
+        })
+    );
 }
 
 /* ---------------- API ---------------- */
@@ -58,8 +79,11 @@ app.get('/api/health', (req, res) => {
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/') || req.path.startsWith('/install/')) return next();
     const indexFile = path.join(WEB_DIR, 'index.html');
-    if (fs.existsSync(indexFile)) return res.sendFile(indexFile);
-    res.status(503).type('text/plain').send('Web 前端未构建：请先在 web/ 目录执行 npm run build');
+    if (fs.existsSync(indexFile)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.sendFile(indexFile);
+    }
+    res.status(503).type('text/plain').send('Web 前端未构建：请先在 web 目录执行 npm run build');
 });
 
 /* ---------------- 定时任务 ---------------- */

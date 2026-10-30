@@ -93,8 +93,7 @@ export default function App() {
                             className={`nav-item ${route.name === key || (key === 'overview' && route.name === 'node') ? 'is-active' : ''}`}
                             onClick={() => setRoute({ name: key })}
                         >
-                            <span className="nav-dot" />
-                            {label}
+                            <span className="nav-label">{label}</span>
                             {key === 'alerts' && stats.openAlerts > 0 && (
                                 <span className="pill is-offline" style={{ marginLeft: 'auto' }}>
                                     {stats.openAlerts}
@@ -115,7 +114,7 @@ export default function App() {
                             退出
                         </button>
                     </div>
-                    <div className="mono">v2.0.0 · {stats.online}/{stats.servers} 在线</div>
+                    <div className="side-version">v2.0.0 · {stats.online}/{stats.servers} 在线</div>
                 </div>
             </aside>
 

@@ -6,11 +6,40 @@
     <meta name="theme-color" content="#0a1222" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="北域监控" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo-white-bg.png" />
     <meta name="description" content="北域工作室 · Northland Studio 服务器统一监控面板" />
     <title>北域工作室 · 服务器监控</title>
+    <script>
+      /* 一次性清理旧版 Service Worker 与缓存（发版后强制更新，避免看不到新功能） */
+      (function () {
+        var CURRENT = 'northland-monitor-v4';
+        var KEY = 'nl_monitor_sw_reset_v4';
+        if (!('serviceWorker' in navigator) || !window.caches) return;
+        if (sessionStorage.getItem(KEY)) return;
+        caches
+          .keys()
+          .then(function (keys) {
+            var stale = keys.some(function (k) { return k !== CURRENT; });
+            if (!stale) return null;
+            return navigator.serviceWorker
+              .getRegistrations()
+              .then(function (regs) {
+                return Promise.all(regs.map(function (r) { return r.unregister(); }));
+              })
+              .then(function () {
+                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              })
+              .then(function () {
+                sessionStorage.setItem(KEY, '1');
+                location.reload();
+              });
+          })
+          .catch(function () {});
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
