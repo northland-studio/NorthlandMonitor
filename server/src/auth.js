@@ -50,26 +50,33 @@ async function sendLoginCode(email) {
 
     const transport = smtpTransport();
     if (!transport) {
-        console.log(`[auth] SMTP 未配置，登录验证码（${email}）：${code}`);
+        console.log(`[auth] SMTP 未配置，登录验证码（${operator.name || email} / ${email}）：${code}`);
         return { ok: true, fallback: true };
     }
+    const displayName = String(operator.name || '').trim() || email.split('@')[0];
     try {
         await transport.sendMail({
             from: `"北域监控" <${getSetting('smtp.user')}>`,
             to: email,
-            subject: '【北域工作台】监控面板登录验证码',
-            text: `你的登录验证码是 ${code}，10 分钟内有效。\n如果不是你本人操作，请忽略本邮件。`,
-            html: `<div style="font-family:sans-serif;line-height:1.8">
+            subject: `【北域工作台】监控面板登录验证码 · ${displayName}`,
+            text: `${displayName}，你好：\n\n你的登录验证码是 ${code}，10 分钟内有效。\n如果不是你本人操作，请忽略本邮件。\n\n北域工作室 · Northland Studio`,
+            html: `<div style="font-family:sans-serif;line-height:1.8;color:#1a2438">
+                <p>${escapeHtml(displayName)}，你好：</p>
                 <p>你的登录验证码是：</p>
-                <p style="font-size:26px;font-weight:700;letter-spacing:6px;color:#004AAD">${code}</p>
+                <p style="font-size:26px;font-weight:700;letter-spacing:6px;color:#1B45B8">${code}</p>
                 <p style="color:#666">10 分钟内有效。如果不是你本人操作，请忽略本邮件。</p>
+                <p style="color:#888;font-size:12px;margin-top:18px">北域工作室 · Northland Studio</p>
             </div>`
         });
-        return { ok: true };
+        return { ok: true, name: displayName };
     } catch (e) {
         console.error('[auth] 发送验证码失败：', e.message);
         return { ok: false, error: '验证码邮件发送失败：' + e.message };
     }
+}
+
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 function verifyLoginCode(email, code) {
