@@ -408,9 +408,41 @@ const ALLOWED_UNITS = [
 const ALLOWED_PM2 = ['xuanjian-guild', 'monitor', 'zhuopu', 'beiyu', 'nork', 'northbooker', 'xuanjian-notice', 'napcat'];
 /** 允许读取的日志目录（路径必须以这些前缀开头） */
 const ALLOWED_LOG_PREFIXES = ['/var/log/', '/var/www/', '/opt/', '/root/.pm2/logs/'];
+/** 文件管理允许访问的根目录（只读） */
+const ALLOWED_FILE_ROOTS = ['/var/www/', '/var/log/', '/opt/', '/root/', '/etc/nginx/', '/srv/', '/home/', '/tmp/'];
 
 function inWhitelist(value, list) {
     return list.some((p) => value === p || value.startsWith(p));
+}
+
+/** 把路径规范化并校验是否在允许的根目录内（防目录穿越） */
+function safeFilePath(input, { allowRootDir = false } = {}) {
+    const raw = String(input || '/var/www');
+    if (raw.includes('\0') || raw.includes('..')) return null;
+    let resolved;
+    try {
+        resolved = fs.realpathSync(raw);
+    } catch {
+        resolved = path.normalize(raw);
+    }
+    const isDir = (() => {
+        try {
+            return fs.statSync(resolved).isDirectory();
+        } catch {
+            return false;
+        }
+    })();
+    if (isDir && !allowRootDir) {
+        // 目录本身也要在白名单内
+    }
+    const ok = ALLOWED_FILE_ROOTS.some((root) => resolved === root.replace(/\/$/, '') || resolved.startsWith(root));
+    return ok ? resolved : null;
+}
+
+function isBinary(buf) {
+    const n = Math.min(buf.length, 4096);
+    for (let i = 0; i < n; i++) if (buf[i] === 0) return true;
+    return false;
 }
 
 const ACTIONS = {
@@ -482,6 +514,74 @@ const ACTIONS = {
         run: async (p) => {
             const out = await sh(`fail2ban-client set ${p.jail} unbanip ${p.ip} 2>&1`, 20000);
             return out.trim() || '已执行解封';
+        }
+    },
+    'file.list': {
+        validate: (p) => safeFilePath(p.path || '/var/www', { allowRootDir: true }) !== null,
+        run: async (p) => {
+            const dir = safeFilePath(p.path || '/var/www', { allowRootDir: true });
+            if (!dir) return JSON.stringify({ error: '路径不在允许范围内' });
+            let names;
+            try {
+                names = fs.readdirSync(dir, { withFileTypes: true });
+            } catch (e) {
+                return JSON.stringify({ error: '读取目录失败：' + e.message });
+            }
+            const entries = names
+                .filter((d) => !d.name.startsWith('.git'))
+                .map((d) => {
+                    const full = path.join(dir, d.name);
+                    let size = 0;
+                    let mtime = 0;
+                    try {
+                        const st = fs.lstatSync(full);
+                        size = st.size;
+                        mtime = st.mtimeMs;
+                    } catch {
+                        /* ignore */
+                    }
+                    return { name: d.name, path: full, isDir: d.isDirectory(), isLink: d.isSymbolicLink(), size, mtime };
+                })
+                .sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name));
+            return JSON.stringify({ path: dir, parent: path.dirname(dir), entries });
+        }
+    },
+    'file.read': {
+        validate: (p) => safeFilePath(p.path) !== null,
+        run: async (p) => {
+            const file = safeFilePath(p.path);
+            if (!file) return '路径不在允许范围内';
+            let st;
+            try {
+                st = fs.statSync(file);
+            } catch (e) {
+                return '读取失败：' + e.message;
+            }
+            if (st.isDirectory()) return '这是一个目录，请先进入目录';
+            const maxBytes = Math.min(Math.max(Number(p.maxBytes) || 262144, 1024), 1048576);
+            const fd = fs.openSync(file, 'r');
+            const buf = Buffer.alloc(Math.min(st.size, maxBytes));
+            fs.readSync(fd, buf, 0, buf.length, 0);
+            fs.closeSync(fd);
+            if (isBinary(buf)) return '__BINARY__:' + file;
+            return buf.toString('utf8');
+        }
+    },
+    'file.download': {
+        validate: (p) => safeFilePath(p.path) !== null,
+        run: async (p) => {
+            const file = safeFilePath(p.path);
+            if (!file) return JSON.stringify({ error: '路径不在允许范围内' });
+            let st;
+            try {
+                st = fs.statSync(file);
+            } catch (e) {
+                return JSON.stringify({ error: '读取失败：' + e.message });
+            }
+            if (st.isDirectory()) return JSON.stringify({ error: '目录不能下载' });
+            if (st.size > 1048576) return JSON.stringify({ error: `文件 ${(st.size / 1048576).toFixed(1)}MB 超过 1MB 下载限制` });
+            const buf = fs.readFileSync(file);
+            return JSON.stringify({ name: path.basename(file), size: st.size, base64: buf.toString('base64') });
         }
     },
     'system.info': {

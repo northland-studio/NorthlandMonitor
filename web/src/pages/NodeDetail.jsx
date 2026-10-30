@@ -12,7 +12,7 @@ const ACTION_TYPES = [
     { type: 'system.info', label: '系统概览（uptime/df/free）', params: [] }
 ];
 
-const READONLY = new Set(['log.tail', 'log.list', 'system.info']);
+const READONLY = new Set(['log.tail', 'log.list', 'system.info', 'file.list', 'file.read', 'file.download']);
 
 export default function NodeDetail({ id, onBack, toast, session }) {
     const [server, setServer] = useState(null);
@@ -29,6 +29,12 @@ export default function NodeDetail({ id, onBack, toast, session }) {
     const [logText, setLogText] = useState('');
     const [logBusy, setLogBusy] = useState(false);
     const [f2bForm, setF2bForm] = useState({ jail: '', ip: '' });
+    const [filePath, setFilePath] = useState('/var/www');
+    const [fileEntries, setFileEntries] = useState([]);
+    const [fileParent, setFileParent] = useState('/');
+    const [fileContent, setFileContent] = useState('');
+    const [fileName, setFileName] = useState('');
+    const [fileBusy, setFileBusy] = useState(false);
 
     const load = useCallback(async () => {
         const [d, mt, a] = await Promise.all([
@@ -126,6 +132,73 @@ export default function NodeDetail({ id, onBack, toast, session }) {
         }
     };
 
+    /* ---------------- 文件管理 ---------------- */
+
+    const loadFiles = async (target) => {
+        const dir = target || filePath;
+        setFileBusy(true);
+        try {
+            const text = await runReadonly('file.list', { path: dir });
+            const data = JSON.parse(text || '{}');
+            if (data.error) throw new Error(data.error);
+            setFilePath(data.path);
+            setFileParent(data.parent || '/');
+            setFileEntries(data.entries || []);
+        } catch (e) {
+            toast(e.message, 'bad');
+        } finally {
+            setFileBusy(false);
+        }
+    };
+
+    const openFile = async (p) => {
+        setFileBusy(true);
+        setFileName(p);
+        setFileContent('加载中…');
+        try {
+            const text = await runReadonly('file.read', { path: p });
+            if (text.startsWith('__BINARY__:')) setFileContent('（二进制文件，请用「下载」按钮获取）');
+            else setFileContent(text || '（空文件）');
+        } catch (e) {
+            setFileContent('读取失败：' + e.message);
+        } finally {
+            setFileBusy(false);
+        }
+    };
+
+    const downloadFile = async (p) => {
+        setFileBusy(true);
+        try {
+            const text = await runReadonly('file.download', { path: p });
+            const data = JSON.parse(text || '{}');
+            if (data.error) throw new Error(data.error);
+            const bin = atob(data.base64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            const blob = new Blob([bytes]);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.name || 'download';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+            toast(`已开始下载 ${data.name}（${(data.size / 1024).toFixed(0)} KB）`, 'ok');
+        } catch (e) {
+            toast(e.message, 'bad');
+        } finally {
+            setFileBusy(false);
+        }
+    };
+
+    const fmtSize = (n) => {
+        n = Number(n) || 0;
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+        return (n / 1048576).toFixed(1) + ' MB';
+    };
+
     const approve = async (aid) => {
         try {
             await api.post(`/api/actions/${aid}/approve`);
@@ -195,6 +268,7 @@ export default function NodeDetail({ id, onBack, toast, session }) {
                             ['procs', '进程'],
                             ['services', '服务'],
                             ['logs', '日志'],
+                            ['files', '文件'],
                             ['actions', '远程操作']
                         ].map(([k, label]) => (
                             <button key={k} className={`tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>
@@ -520,6 +594,88 @@ export default function NodeDetail({ id, onBack, toast, session }) {
                             </div>
                         </div>
                         <pre className="pre">{logText || '（选择上方的日志文件查看内容）'}</pre>
+                    </div>
+                </>
+            )}
+
+            {tab === 'files' && (
+                <>
+                    <div className="card">
+                        <div className="card-head">
+                            <div className="card-title">文件管理</div>
+                            <span className="mono">只读 · 白名单目录（/var/www /var/log /opt /root /etc/nginx /srv /home /tmp）</span>
+                        </div>
+                        <div className="row" style={{ marginBottom: 10 }}>
+                            <input className="input" style={{ flex: 1, minWidth: 220 }} value={filePath} onChange={(e) => setFilePath(e.target.value)} />
+                            <button className="btn btn-sm" onClick={() => loadFiles(filePath)} disabled={fileBusy}>
+                                {fileBusy ? '读取中…' : '打开'}
+                            </button>
+                            <button className="btn btn-sm" onClick={() => loadFiles(fileParent)} disabled={fileBusy || !fileParent}>
+                                上级目录
+                            </button>
+                            <button className="btn btn-sm btn-primary" onClick={() => loadFiles('/var/www')} disabled={fileBusy}>
+                                站点根目录
+                            </button>
+                        </div>
+                        {fileEntries.length ? (
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>名称</th>
+                                        <th>类型</th>
+                                        <th>大小</th>
+                                        <th>修改时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fileEntries.map((f) => (
+                                        <tr key={f.path}>
+                                            <td>
+                                                {f.isDir ? (
+                                                    <button className="btn btn-sm" style={{ border: 'none', background: 'transparent', padding: 0, color: 'var(--primary)' }} onClick={() => loadFiles(f.path)}>
+                                                        目录 {f.name}
+                                                    </button>
+                                                ) : (
+                                                    f.name
+                                                )}
+                                                {f.isLink && <span className="mono"> （软链）</span>}
+                                            </td>
+                                            <td className="mono">{f.isDir ? '目录' : '文件'}</td>
+                                            <td className="mono">{f.isDir ? '—' : fmtSize(f.size)}</td>
+                                            <td className="mono">{f.mtime ? fmtTime(f.mtime) : '—'}</td>
+                                            <td>
+                                                {!f.isDir && (
+                                                    <div className="row" style={{ gap: 6 }}>
+                                                        <button className="btn btn-sm" onClick={() => openFile(f.path)} disabled={fileBusy}>
+                                                            查看
+                                                        </button>
+                                                        <button className="btn btn-sm" onClick={() => downloadFile(f.path)} disabled={fileBusy}>
+                                                            下载
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="empty" style={{ padding: 14 }}>
+                                输入路径后点「打开」即可浏览节点文件（无需审批）
+                            </div>
+                        )}
+                    </div>
+                    <div className="card" style={{ marginTop: 14 }}>
+                        <div className="card-head">
+                            <div className="card-title">{fileName || '文件内容'}</div>
+                            {fileName && (
+                                <button className="btn btn-sm" onClick={() => downloadFile(fileName)} disabled={fileBusy}>
+                                    下载
+                                </button>
+                            )}
+                        </div>
+                        <pre className="pre">{fileContent || '（选择文件后点「查看」）'}</pre>
                     </div>
                 </>
             )}

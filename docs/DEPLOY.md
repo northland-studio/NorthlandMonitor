@@ -87,3 +87,14 @@ systemctl disable --now xuanjian-agent
 - 远程操作：主控审批 + Agent 侧白名单/参数/时效三重校验，动作记录写入审计
 - 面板登录：邮箱验证码（仅名单内运维），会话 24 小时 HttpOnly Cookie
 - nginx 侧仅暴露 443，3004 只监听 127.0.0.1
+
+## 9. 运维名单迁移
+
+旧版名单在 `/var/www/monitor/operators.json`，已导入新版 `operators` 表：
+
+```bash
+# 重新导入（幂等，已存在的邮箱跳过）
+bash scripts/import-operators.sh
+```
+
+导入后默认均为只读运维；管理员仅 `northland@xuanjian.top`。

@@ -12,6 +12,7 @@ Northland Studio 的多服务器监控与运维面板。替代原单体 `monitor
 | --- | --- |
 | 节点总览 | CPU / 内存 / 磁盘 / 网络 / 负载 / PM2 / systemd 实时状态，10 秒刷新 |
 | 单机详情 | 1h~30d 趋势曲线、进程 Top、systemd 服务列表、fail2ban、日志、远程操作 |
+| 文件管理 | 只读浏览节点文件（/var/www、/var/log、/opt、/root、/etc/nginx、/srv、/home、/tmp），支持查看文本与下载 ≤1MB 文件；路径经 realpath 校验，越权直接拒绝 |
 | 日志查看 | 自动列出各节点上 38+ 个日志文件（系统 / PM2 / 站点），支持 100/200/500 行查看（只读动作免审批） |
 | Fail2ban | 实时封禁统计 + 封禁 IP 列表，点击 IP 即可发起解封；手动封禁/解封需审批 |
 | 远程操作 | 重启 systemd/pm2、清理旧文件、系统概览；白名单 + 审批 + 审计 |
@@ -95,6 +96,15 @@ journalctl -u xuanjian-agent -n 50
 tail -f /var/log/xuanjian-agent.log
 ```
 
+## 运维名单
+
+登录采用邮箱验证码，名单存在 `operators` 表：
+
+- 管理员（level 2）：northland@xuanjian.top
+- 只读运维（level 1）：从旧版 monitor 导入的 10 人（张津瑞、王子翰、蒋俊宇、吕启昊、刘智鹏、张津瑞(备用邮箱)、玄剑公会企业邮箱、杨晨逍、李昶瑾、沈秋哲）
+
+只读运维可查看全部监控数据、日志与文件，不能修改设置、不能审批动作。名单可在「设置 → 运维人员」增删改。
+
 ## 数据与保留策略
 
 | 数据 | 保留 |
@@ -160,3 +170,8 @@ pm2 start src/index.js --name monitor-v2
 - 前端品牌化为「北域工作室 Northland Studio」，使用官方 logo 与 16:9 品牌图
 - 修复：systemd 单元名解析、PM2 在 systemd 环境下的 PATH、进度条布局、指标计数显示
 - 115 磁盘清理：MC 存档备份保留 3 天（并给备份脚本加自动清理）、删除 31 天官网整站备份，磁盘 89% → 59%
+
+### 2026-10-30 增补
+- 新增文件管理（只读）：file.list / file.read / file.download 只读动作免审批，白名单目录 + realpath 防穿越
+- 从旧版 monitor 导入 10 名运维（全部只读），northland@xuanjian.top 保持管理员，共 11 人
+- Service Worker 改为「导航网络优先 + 静态资源缓存优先」，避免发版后浏览器读到旧页面

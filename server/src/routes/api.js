@@ -192,7 +192,7 @@ router.get('/actions/:id', requireAuth, (req, res) => {
 });
 
 /** 只读动作：不需要审批，提交即生效（仍全量审计） */
-const READONLY_ACTIONS = new Set(['log.tail', 'log.list', 'system.info']);
+const READONLY_ACTIONS = new Set(['log.tail', 'log.list', 'system.info', 'file.list', 'file.read', 'file.download']);
 
 router.post('/actions', requireAuth, (req, res) => {
     const { serverId, type, params, reason } = req.body || {};
