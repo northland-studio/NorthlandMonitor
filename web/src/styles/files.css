@@ -101,3 +101,67 @@
   width: 12px;
   height: 12px;
 }
+
+/* ---------- 定时报告设置 ---------- */
+.grid-3 {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.recipient-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  margin-top: 8px;
+}
+.recipient-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+}
+.recipient-item:hover {
+  border-color: var(--primary);
+}
+.recipient-item.is-on {
+  border-color: var(--primary);
+  background: rgba(61, 111, 240, 0.1);
+}
+[data-theme='light'] .recipient-item.is-on {
+  background: rgba(27, 69, 184, 0.07);
+}
+.recipient-item input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  flex: none;
+  cursor: pointer;
+}
+.recipient-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.recipient-mail {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* 邮件预览弹窗内容自适应 */
+@media (max-width: 720px) {
+  .recipient-list {
+    grid-template-columns: 1fr;
+  }
+}

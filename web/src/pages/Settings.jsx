@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, fmtTime } from '../lib/api.js';
+import { IconMail } from '../components/icons.jsx';
 
 const ALERT_FIELDS = [
     ['alert.cpuPct', 'CPU 使用率阈值（%）', '85'],
@@ -27,10 +28,20 @@ export default function Settings({ toast, session }) {
     const [tab, setTab] = useState('alerts');
     const [busy, setBusy] = useState(false);
     const [newOp, setNewOp] = useState({ email: '', name: '', level: 1 });
+    const [reportRecipients, setReportRecipients] = useState([]);
+    const [extraRecipients, setExtraRecipients] = useState('');
 
     const load = useCallback(async () => {
         const [s, o, a] = await Promise.all([api.get('/api/settings'), api.get('/api/operators'), api.get('/api/audit?limit=100')]);
-        setSettings(s.settings || {});
+        const st = s.settings || {};
+        setSettings(st);
+        const saved = String(st['report.recipients'] || '')
+            .split(/[,;\\s]+/)
+            .map((x) => x.trim())
+            .filter(Boolean);
+        const known = new Set((o.operators || []).map((x) => x.email));
+        setReportRecipients(saved.filter((e) => known.has(e)));
+        setExtraRecipients(saved.filter((e) => !known.has(e)).join(','));
         setOperators(o.operators || []);
         setAuditLog(a.audit || []);
     }, []);
@@ -211,8 +222,14 @@ export default function Settings({ toast, session }) {
             {tab === 'report' && (
                 <div className="card">
                     <div className="card-head">
-                        <div className="card-title">定时日报</div>
+                        <div className="card-title">
+                            <IconMail className="title-icon" />
+                            定时报告
+                        </div>
                         <div className="row">
+                            <button className="btn btn-sm" onClick={() => window.open('/api/report/preview-html', '_blank')}>
+                                预览邮件
+                            </button>
                             <button
                                 className="btn btn-primary btn-sm"
                                 disabled={busy || !isAdmin}
@@ -220,9 +237,15 @@ export default function Settings({ toast, session }) {
                                     setBusy(true);
                                     try {
                                         await api.put('/api/settings', {
-                                            settings: { 'report.enabled': settings['report.enabled'] ?? '1', 'report.hour': settings['report.hour'] ?? '9' }
+                                            settings: {
+                                                'report.enabled': settings['report.enabled'] ?? '1',
+                                                'report.frequency': settings['report.frequency'] ?? 'daily',
+                                                'report.hour': settings['report.hour'] ?? '9',
+                                                'report.weekday': settings['report.weekday'] ?? '1',
+                                                'report.recipients': [...(reportRecipients || []), ...extraRecipients.split(/[,;\\s]+/).map((x) => x.trim()).filter((x) => x.includes('@'))].join(',')
+                                            }
                                         });
-                                        toast('日报设置已保存', 'ok');
+                                        toast('报告设置已保存', 'ok');
                                         await load();
                                     } catch (e) {
                                         toast(e.message, 'bad');
@@ -239,7 +262,7 @@ export default function Settings({ toast, session }) {
                                 onClick={async () => {
                                     try {
                                         const r = await api.post('/api/report/send', {});
-                                        toast('日报已发送至 ' + (r.to || '收件人'), 'ok');
+                                        toast((r.weekly ? '周报' : '日报') + '已发送至 ' + (r.to || '收件人'), 'ok');
                                     } catch (e) {
                                         toast(e.message, 'bad');
                                     }
@@ -249,28 +272,115 @@ export default function Settings({ toast, session }) {
                             </button>
                         </div>
                     </div>
-                    <div className="grid grid-2">
+
+                    <div className="grid grid-3">
                         <div className="field">
-                            <label>是否启用（1 启用 / 0 关闭）</label>
-                            <input
-                                className="input"
+                            <label>启用</label>
+                            <select
+                                className="select"
                                 value={settings['report.enabled'] ?? '1'}
                                 disabled={!isAdmin}
                                 onChange={(e) => setSettings({ ...settings, 'report.enabled': e.target.value })}
-                            />
+                            >
+                                <option value="1">启用</option>
+                                <option value="0">关闭</option>
+                            </select>
                         </div>
                         <div className="field">
-                            <label>每天发送时间（0-23 点）</label>
-                            <input
-                                className="input"
+                            <label>发送频率</label>
+                            <select
+                                className="select"
+                                value={settings['report.frequency'] ?? 'daily'}
+                                disabled={!isAdmin}
+                                onChange={(e) => setSettings({ ...settings, 'report.frequency': e.target.value })}
+                            >
+                                <option value="daily">每天（日报 · 近 24 小时）</option>
+                                <option value="weekly">每周（周报 · 近 7 天）</option>
+                            </select>
+                        </div>
+                        {(settings['report.frequency'] ?? 'daily') === 'weekly' && (
+                            <div className="field">
+                                <label>每周发送日</label>
+                                <select
+                                    className="select"
+                                    value={settings['report.weekday'] ?? '1'}
+                                    disabled={!isAdmin}
+                                    onChange={(e) => setSettings({ ...settings, 'report.weekday': e.target.value })}
+                                >
+                                    {[
+                                        ['1', '周一'],
+                                        ['2', '周二'],
+                                        ['3', '周三'],
+                                        ['4', '周四'],
+                                        ['5', '周五'],
+                                        ['6', '周六'],
+                                        ['7', '周日']
+                                    ].map(([v, label]) => (
+                                        <option key={v} value={v}>
+                                            {label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        <div className="field">
+                            <label>发送时间</label>
+                            <select
+                                className="select"
                                 value={settings['report.hour'] ?? '9'}
                                 disabled={!isAdmin}
                                 onChange={(e) => setSettings({ ...settings, 'report.hour': e.target.value })}
-                            />
+                            >
+                                {Array.from({ length: 24 }, (_, i) => (
+                                    <option key={i} value={String(i)}>
+                                        {String(i).padStart(2, '0')}:00
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
-                    <p className="mono" style={{ marginTop: 10 }}>
-                        日报内容：各节点状态、24h 平均/峰值 CPU、平均内存、最大磁盘、未处理告警列表。收件人使用「邮件通知」里的告警收件人。
+
+                    <div style={{ marginTop: 16 }}>
+                        <div className="field">
+                            <label>收件人（勾选运维人员，可另加外部邮箱）</label>
+                            <div className="recipient-list">
+                                {(operators || []).map((o) => {
+                                    const on = (reportRecipients || []).includes(o.email);
+                                    return (
+                                        <label key={o.email} className={`recipient-item ${on ? 'is-on' : ''}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={on}
+                                                disabled={!isAdmin}
+                                                onChange={(e) => {
+                                                    const cur = new Set(reportRecipients || []);
+                                                    if (e.target.checked) cur.add(o.email);
+                                                    else cur.delete(o.email);
+                                                    setReportRecipients([...cur]);
+                                                }}
+                                            />
+                                            <span className="recipient-name">{o.name || o.email.split('@')[0]}</span>
+                                            <span className="recipient-mail">{o.email}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            <div className="row" style={{ marginTop: 10 }}>
+                                <input
+                                    className="input"
+                                    style={{ flex: 1, minWidth: 240 }}
+                                    placeholder="额外收件人，多个用英文逗号分隔（可留空）"
+                                    value={extraRecipients}
+                                    disabled={!isAdmin}
+                                    onChange={(e) => setExtraRecipients(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <p className="mono" style={{ marginTop: 12 }}>
+                        日报内容：品牌化 HTML（节点卡片 + CPU/内存/磁盘进度条 + 近 24h 均值/峰值 + 未处理告警），
+                        周报则统计近 7 天。当前收件人 {(reportRecipients || []).length} 个。
                     </p>
                 </div>
             )}

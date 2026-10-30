@@ -5,7 +5,7 @@
 
 const crypto = require('node:crypto');
 const express = require('express');
-const { db, getSettings, setSetting } = require('../db');
+const { db, getSetting, getSettings, setSetting } = require('../db');
 const { requireAuth, requireAdmin, sendLoginCode, verifyLoginCode, setSessionCookie, clearSessionCookie, sessionFromReq, sha256 } = require('../auth');
 const alerter = require('../services/alerter');
 const reporter = require('../services/reporter');
@@ -329,6 +329,12 @@ router.put('/settings', requireAdmin, (req, res) => {
 
 router.get('/report/preview', requireAuth, (req, res) => {
     res.json({ ok: true, ...reporter.collectSummary() });
+});
+
+router.get('/report/preview-html', requireAuth, (req, res) => {
+    const weekly = String(getSetting('report.frequency') || 'daily') === 'weekly';
+    const sum = reporter.collectSummary(weekly ? 7 : 1);
+    res.type('html').send(reporter.renderHtml(sum, { weekly }));
 });
 
 router.post('/report/send', requireAdmin, async (req, res) => {

@@ -215,3 +215,20 @@ export function IconTerminal(props) {
         </Svg>
     );
 }
+export function IconMail(props) {
+    return (
+        <Svg {...props}>
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="m3.5 7 8.5 6 8.5-6" />
+        </Svg>
+    );
+}
+
+export function IconCalendar(props) {
+    return (
+        <Svg {...props}>
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M8 3v4M16 3v4M3 11h18" />
+        </Svg>
+    );
+}
