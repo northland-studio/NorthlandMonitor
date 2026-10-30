@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './lib/api.js';
 import { useToast } from './components/ui.jsx';
+import { IconOverview, IconAlert, IconAddNode, IconSettings, IconLogout, IconSun, IconMoon } from './components/icons.jsx';
 import Login from './pages/Login.jsx';
 import Overview from './pages/Overview.jsx';
 import NodeDetail from './pages/NodeDetail.jsx';
@@ -9,10 +10,10 @@ import AddNode from './pages/AddNode.jsx';
 import Settings from './pages/Settings.jsx';
 
 const NAV = [
-    ['overview', '总览'],
-    ['alerts', '告警'],
-    ['add', '添加节点'],
-    ['settings', '设置']
+    ['overview', '总览', IconOverview],
+    ['alerts', '告警', IconAlert],
+    ['add', '添加节点', IconAddNode],
+    ['settings', '设置', IconSettings]
 ];
 
 export default function App() {
@@ -35,6 +36,28 @@ export default function App() {
             .catch(() => setSession(null))
             .finally(() => setChecking(false));
     }, []);
+
+    // 权限/姓名实时同步：窗口获得焦点或每 3 分钟刷新一次，
+    // 管理员调整名单后无需重新登录即可生效
+    useEffect(() => {
+        if (!session) return undefined;
+        let cancelled = false;
+        const sync = () => {
+            api.get('/api/auth/me')
+                .then((r) => {
+                    if (!cancelled) setSession((prev) => (prev ? { ...prev, ...r } : r));
+                })
+                .catch(() => {});
+        };
+        const onFocus = () => sync();
+        window.addEventListener('focus', onFocus);
+        const timer = setInterval(sync, 3 * 60 * 1000);
+        return () => {
+            cancelled = true;
+            window.removeEventListener('focus', onFocus);
+            clearInterval(timer);
+        };
+    }, [Boolean(session)]);
 
     const refresh = useCallback(async () => {
         const [s, st] = await Promise.all([api.get('/api/servers'), api.get('/api/stats')]);
@@ -87,12 +110,14 @@ export default function App() {
                     </div>
                 </div>
                 <nav className="nav">
-                    {NAV.map(([key, label]) => (
+                    {NAV.map(([key, label, Icon]) => (
                         <button
                             key={key}
                             className={`nav-item ${route.name === key || (key === 'overview' && route.name === 'node') ? 'is-active' : ''}`}
                             onClick={() => setRoute({ name: key })}
+                            title={label}
                         >
+                            <Icon className="nav-icon" />
                             <span className="nav-label">{label}</span>
                             {key === 'alerts' && stats.openAlerts > 0 && (
                                 <span className="pill is-offline" style={{ marginLeft: 'auto' }}>
@@ -103,15 +128,20 @@ export default function App() {
                     ))}
                 </nav>
                 <div className="side-foot">
-                    <button className="btn btn-sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                    <button className="btn btn-sm theme-toggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                        {theme === 'dark' ? <IconSun /> : <IconMoon />}
                         {theme === 'dark' ? '切换浅色' : '切换深色'}
                     </button>
                     <div className="side-user">
-                        <span className="mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {session.email}
-                        </span>
-                        <button className="btn btn-sm" onClick={logout}>
-                            退出
+                        <div className="side-user-info">
+                            <div className="side-user-name">{session.name || session.email.split('@')[0]}</div>
+                            <div className="side-user-mail" title={session.email}>
+                                {session.email}
+                            </div>
+                        </div>
+                        <button className="btn btn-sm btn-ghost logout-btn" onClick={logout} title="退出登录">
+                            <IconLogout />
+                            <span>退出</span>
                         </button>
                     </div>
                     <div className="side-version">v2.0.0 · {stats.online}/{stats.servers} 在线</div>

@@ -115,7 +115,17 @@ function sessionFromReq(req) {
         db.prepare('DELETE FROM sessions WHERE id = ?').run(sid);
         return null;
     }
-    return row;
+    // 权限与姓名实时从 operators 表读取：调整名单后无需重新登录即可生效
+    const op = db.prepare('SELECT email, name, level, active FROM operators WHERE email = ?').get(row.email);
+    if (!op || !op.active) {
+        db.prepare('DELETE FROM sessions WHERE id = ?').run(sid);
+        return null;
+    }
+    return {
+        ...row,
+        level: op.level,
+        name: (op.name || '').trim() || row.email.split('@')[0]
+    };
 }
 
 function requireAuth(req, res, next) {

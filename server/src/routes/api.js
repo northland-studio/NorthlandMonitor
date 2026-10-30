@@ -46,13 +46,14 @@ router.post('/auth/login', (req, res) => {
         req.ip || '',
         Date.now()
     );
-    res.json({ ok: true, email: r.email, level: r.level });
+    const op = db.prepare('SELECT name FROM operators WHERE email = ?').get(r.email);
+    res.json({ ok: true, email: r.email, level: r.level, name: (op && op.name) || r.email.split('@')[0] });
 });
 
 router.get('/auth/me', (req, res) => {
     const s = sessionFromReq(req);
     if (!s) return res.status(401).json({ ok: false, error: '未登录' });
-    res.json({ ok: true, email: s.email, level: s.level });
+    res.json({ ok: true, email: s.email, level: s.level, name: s.name || s.email.split('@')[0] });
 });
 
 router.post('/auth/logout', (req, res) => {

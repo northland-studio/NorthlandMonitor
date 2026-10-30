@@ -1,6 +1,19 @@
+import React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, fmtRate, fmtTime, fmtUptime, timeAgo } from '../lib/api.js';
 import Spark, { MetricLine } from '../components/ui.jsx';
+import {
+    IconFolder,
+    IconFolderOpen,
+    IconFile,
+    IconFileText,
+    IconLink,
+    IconEye,
+    IconDownload,
+    IconArrowUp,
+    IconHome,
+    IconChevronRight
+} from '../components/icons.jsx';
 
 const ACTION_TYPES = [
     { type: 'service.restart', label: '重启 systemd 服务', params: [{ k: 'unit', label: '单元名', placeholder: 'nginx' }] },
@@ -602,20 +615,47 @@ export default function NodeDetail({ id, onBack, toast, session }) {
                 <>
                     <div className="card">
                         <div className="card-head">
-                            <div className="card-title">文件管理</div>
+                            <div className="card-title">
+                                <IconFolderOpen className="title-icon" />
+                                文件管理
+                            </div>
                             <span className="mono">只读 · 白名单目录（/var/www /var/log /opt /root /etc/nginx /srv /home /tmp）</span>
                         </div>
                         <div className="row" style={{ marginBottom: 10 }}>
                             <input className="input" style={{ flex: 1, minWidth: 220 }} value={filePath} onChange={(e) => setFilePath(e.target.value)} />
                             <button className="btn btn-sm" onClick={() => loadFiles(filePath)} disabled={fileBusy}>
+                                <IconFolderOpen />
                                 {fileBusy ? '读取中…' : '打开'}
                             </button>
                             <button className="btn btn-sm" onClick={() => loadFiles(fileParent)} disabled={fileBusy || !fileParent}>
+                                <IconArrowUp />
                                 上级目录
                             </button>
                             <button className="btn btn-sm btn-primary" onClick={() => loadFiles('/var/www')} disabled={fileBusy}>
+                                <IconHome />
                                 站点根目录
                             </button>
+                        </div>
+                        <div className="breadcrumb" title={filePath}>
+                            <IconFolder className="crumb-icon" />
+                            {String(filePath)
+                                .split('/')
+                                .filter(Boolean)
+                                .reduce(
+                                    (acc, part, i, arr) => {
+                                        const path = '/' + arr.slice(0, i + 1).join('/');
+                                        acc.push(
+                                            <React.Fragment key={path}>
+                                                <button className="crumb" onClick={() => loadFiles(path)} disabled={fileBusy}>
+                                                    {part}
+                                                </button>
+                                                <IconChevronRight className="crumb-sep" />
+                                            </React.Fragment>
+                                        );
+                                        return acc;
+                                    },
+                                    []
+                                )}
                         </div>
                         {fileEntries.length ? (
                             <table className="table">
@@ -632,25 +672,30 @@ export default function NodeDetail({ id, onBack, toast, session }) {
                                     {fileEntries.map((f) => (
                                         <tr key={f.path}>
                                             <td>
-                                                {f.isDir ? (
-                                                    <button className="btn btn-sm" style={{ border: 'none', background: 'transparent', padding: 0, color: 'var(--primary)' }} onClick={() => loadFiles(f.path)}>
-                                                        目录 {f.name}
-                                                    </button>
-                                                ) : (
-                                                    f.name
-                                                )}
-                                                {f.isLink && <span className="mono"> （软链）</span>}
+                                                <span className="file-name">
+                                                    {f.isDir ? <IconFolder className="file-icon is-dir" /> : <IconFile className="file-icon" />}
+                                                    {f.isDir ? (
+                                                        <button className="link-btn" onClick={() => loadFiles(f.path)}>
+                                                            {f.name}
+                                                        </button>
+                                                    ) : (
+                                                        <span>{f.name}</span>
+                                                    )}
+                                                    {f.isLink && <IconLink className="file-icon is-link" title="软链接" />}
+                                                </span>
                                             </td>
                                             <td className="mono">{f.isDir ? '目录' : '文件'}</td>
                                             <td className="mono">{f.isDir ? '—' : fmtSize(f.size)}</td>
                                             <td className="mono">{f.mtime ? fmtTime(f.mtime) : '—'}</td>
                                             <td>
                                                 {!f.isDir && (
-                                                    <div className="row" style={{ gap: 6 }}>
+                                                    <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                                                         <button className="btn btn-sm" onClick={() => openFile(f.path)} disabled={fileBusy}>
+                                                            <IconEye />
                                                             查看
                                                         </button>
                                                         <button className="btn btn-sm" onClick={() => downloadFile(f.path)} disabled={fileBusy}>
+                                                            <IconDownload />
                                                             下载
                                                         </button>
                                                     </div>
@@ -668,9 +713,13 @@ export default function NodeDetail({ id, onBack, toast, session }) {
                     </div>
                     <div className="card" style={{ marginTop: 14 }}>
                         <div className="card-head">
-                            <div className="card-title">{fileName || '文件内容'}</div>
+                            <div className="card-title">
+                                <IconFileText className="title-icon" />
+                                {fileName || '文件内容'}
+                            </div>
                             {fileName && (
                                 <button className="btn btn-sm" onClick={() => downloadFile(fileName)} disabled={fileBusy}>
+                                    <IconDownload />
                                     下载
                                 </button>
                             )}
