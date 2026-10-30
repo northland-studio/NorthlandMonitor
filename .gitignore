@@ -1,0 +1,13 @@
+node_modules/
+data/
+dist/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+_stage*.tgz
+_b*.tgz
+_brand.tgz
+*.bak
+*.bak-*

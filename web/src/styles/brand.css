@@ -1,0 +1,162 @@
+/** 品牌化样式覆盖：北域工作室 Northland Studio */
+:root {
+  --bg: #0a1222;
+  --bg-soft: #101a2e;
+  --card: rgba(255, 255, 255, 0.06);
+  --card-solid: #152139;
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #e9eefb;
+  --text-dim: #93a4c4;
+  --primary: #3d6ff0;
+  --primary-deep: #1b45b8;
+  --ok: #35d39a;
+  --warn: #ffb02e;
+  --bad: #ff5c6c;
+  --radius: 14px;
+  --shadow: 0 12px 32px rgba(3, 9, 20, 0.45);
+}
+
+[data-theme='light'] {
+  --bg: #eef2fa;
+  --bg-soft: #ffffff;
+  --card: rgba(255, 255, 255, 0.9);
+  --card-solid: #ffffff;
+  --border: rgba(20, 40, 90, 0.12);
+  --text: #16233a;
+  --text-dim: #5d6f8c;
+  --primary: #1b45b8;
+  --primary-deep: #12339a;
+  --ok: #12a06b;
+  --warn: #c47a00;
+  --bad: #d9384b;
+  --shadow: 0 10px 28px rgba(27, 69, 184, 0.12);
+}
+
+/* 侧栏品牌区 */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+}
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 9px;
+  background: #fff;
+  padding: 3px;
+  flex: none;
+}
+.brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+}
+.brand-sub {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* 登录页：北域 16:9 品牌图作背景 */
+.login-wrap {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.login-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url('/studio.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.18;
+  filter: saturate(1.05);
+  pointer-events: none;
+}
+[data-theme='light'] .login-bg {
+  opacity: 0.3;
+}
+.login-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(900px 520px at 50% 35%, rgba(61, 111, 240, 0.22), transparent 65%),
+    linear-gradient(180deg, rgba(10, 18, 34, 0.55), rgba(10, 18, 34, 0.92));
+  pointer-events: none;
+}
+[data-theme='light'] .login-wrap::after {
+  background: radial-gradient(900px 520px at 50% 35%, rgba(27, 69, 184, 0.16), transparent 65%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(238, 242, 250, 0.95));
+}
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 392px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 26px 24px 20px;
+  backdrop-filter: blur(18px);
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.login-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+  padding: 5px;
+  flex: none;
+}
+.login-brand-cn {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+.login-brand-en {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.login-foot {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+
+/* 主内容区顶部加一点品牌蓝渐变 */
+.main {
+  background: radial-gradient(900px 420px at 100% -10%, rgba(61, 111, 240, 0.1), transparent 60%);
+}
+
+@media (max-width: 860px) {
+  .brand-logo {
+    width: 30px;
+    height: 30px;
+  }
+  .login-logo {
+    width: 44px;
+    height: 44px;
+  }
+}

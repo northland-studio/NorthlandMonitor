@@ -1,0 +1,14 @@
+{
+  "name": "xuanjian-monitor-agent",
+  "version": "2.0.0",
+  "description": "玄剑工作室服务器监控 Agent（单文件 Node，systemd 托管）",
+  "main": "agent.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node agent.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}
