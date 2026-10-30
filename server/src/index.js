@@ -18,6 +18,7 @@ const agentRoutes = require('./routes/agent');
 const apiRoutes = require('./routes/api');
 const { cleanupSessions } = require('./auth');
 const alerter = require('./services/alerter');
+const reporter = require('./services/reporter');
 
 const PORT = Number(process.env.PORT || 3002);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -84,6 +85,11 @@ function startJobs() {
             console.error('[job] 清理失败：', e.message);
         }
     }, 10 * 60000).unref();
+
+    // 定时日报：每分钟检查一次是否到点
+    setInterval(() => {
+        reporter.tick().catch((e) => console.error('[job] 日报检查失败：', e.message));
+    }, 60000).unref();
 }
 
 /* ---------------- 启动 ---------------- */

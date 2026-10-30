@@ -6,9 +6,13 @@ const ACTION_TYPES = [
     { type: 'service.restart', label: '重启 systemd 服务', params: [{ k: 'unit', label: '单元名', placeholder: 'nginx' }] },
     { type: 'pm2.restart', label: '重启 PM2 进程', params: [{ k: 'name', label: '进程名', placeholder: 'xuanjian-guild' }] },
     { type: 'log.tail', label: '查看日志尾部', params: [{ k: 'path', label: '日志路径', placeholder: '/var/log/nginx/error.log' }, { k: 'lines', label: '行数', placeholder: '100' }] },
+    { type: 'fail2ban.ban', label: 'Fail2ban 封禁 IP', params: [{ k: 'jail', label: 'Jail 名称', placeholder: 'sshd' }, { k: 'ip', label: 'IP 地址', placeholder: '1.2.3.4' }] },
+    { type: 'fail2ban.unban', label: 'Fail2ban 解封 IP', params: [{ k: 'jail', label: 'Jail 名称', placeholder: 'sshd' }, { k: 'ip', label: 'IP 地址', placeholder: '1.2.3.4' }] },
     { type: 'disk.cleanup', label: '清理旧文件', params: [{ k: 'target', label: '目录（以 / 结尾）', placeholder: '/opt/minecraft-backups/' }, { k: 'keepDays', label: '保留天数', placeholder: '3' }] },
     { type: 'system.info', label: '系统概览（uptime/df/free）', params: [] }
 ];
+
+const READONLY = new Set(['log.tail', 'log.list', 'system.info']);
 
 export default function NodeDetail({ id, onBack, toast, session }) {
     const [server, setServer] = useState(null);
@@ -20,6 +24,11 @@ export default function NodeDetail({ id, onBack, toast, session }) {
     const [form, setForm] = useState({ type: 'service.restart', params: {}, reason: '' });
     const [busy, setBusy] = useState(false);
     const [output, setOutput] = useState('');
+    const [logFiles, setLogFiles] = useState([]);
+    const [logPath, setLogPath] = useState('');
+    const [logText, setLogText] = useState('');
+    const [logBusy, setLogBusy] = useState(false);
+    const [f2bForm, setF2bForm] = useState({ jail: '', ip: '' });
 
     const load = useCallback(async () => {
         const [d, mt, a] = await Promise.all([
@@ -39,20 +48,81 @@ export default function NodeDetail({ id, onBack, toast, session }) {
         return () => clearInterval(t);
     }, [load, toast]);
 
+    /** 提交只读动作并等待 Agent 执行结果（最多 25 秒） */
+    const runReadonly = async (type, params) => {
+        const r = await api.post('/api/actions', { serverId: Number(id), type, params });
+        for (let i = 0; i < 25; i++) {
+            await new Promise((res) => setTimeout(res, 1000));
+            const a = await api.get(`/api/actions/${r.id}`);
+            const st = a.action && a.action.status;
+            if (st === 'done') return a.action.output || '';
+            if (st === 'failed') throw new Error(a.action.error || '执行失败');
+            if (st === 'pending' || st === 'approved' || st === 'running') continue;
+            break;
+        }
+        throw new Error('等待 Agent 超时（节点可能离线）');
+    };
+
+    const loadLogFiles = async () => {
+        setLogBusy(true);
+        try {
+            const text = await runReadonly('log.list', {});
+            const list = JSON.parse(text || '[]');
+            setLogFiles(list);
+            if (!logPath && list.length) setLogPath(list[0].path);
+            toast(`已获取 ${list.length} 个日志文件`, 'ok');
+        } catch (e) {
+            toast(e.message, 'bad');
+        } finally {
+            setLogBusy(false);
+        }
+    };
+
+    const openLog = async (path, lines = 200) => {
+        setLogPath(path);
+        setLogBusy(true);
+        setLogText('加载中…');
+        try {
+            const text = await runReadonly('log.tail', { path, lines });
+            setLogText(text);
+        } catch (e) {
+            setLogText('读取失败：' + e.message);
+        } finally {
+            setLogBusy(false);
+        }
+    };
+
     const submitAction = async () => {
         setBusy(true);
         try {
             const params = { ...form.params };
             if (params.lines) params.lines = Number(params.lines);
             if (params.keepDays) params.keepDays = Number(params.keepDays);
+            const auto = READONLY.has(form.type);
             await api.post('/api/actions', { serverId: Number(id), type: form.type, params, reason: form.reason });
-            toast('已提交，等待审批', 'ok');
+            toast(auto ? '已提交并自动执行' : '已提交，等待审批', 'ok');
             setForm({ ...form, reason: '' });
             await load();
         } catch (e) {
             toast(e.message, 'bad');
         } finally {
             setBusy(false);
+        }
+    };
+
+    const submitF2b = async (type) => {
+        if (!f2bForm.jail || !f2bForm.ip) return toast('请填写 jail 与 IP', 'bad');
+        try {
+            await api.post('/api/actions', {
+                serverId: Number(id),
+                type,
+                params: { jail: f2bForm.jail, ip: f2bForm.ip },
+                reason: 'Fail2ban 手动操作'
+            });
+            toast(type === 'fail2ban.ban' ? '封禁申请已提交，等待审批' : '解封申请已提交，等待审批', 'ok');
+            await load();
+        } catch (e) {
+            toast(e.message, 'bad');
         }
     };
 
@@ -124,6 +194,7 @@ export default function NodeDetail({ id, onBack, toast, session }) {
                             ['overview', '概览'],
                             ['procs', '进程'],
                             ['services', '服务'],
+                            ['logs', '日志'],
                             ['actions', '远程操作']
                         ].map(([k, label]) => (
                             <button key={k} className={`tab ${tab === k ? 'is-active' : ''}`} onClick={() => setTab(k)}>
@@ -338,29 +409,117 @@ export default function NodeDetail({ id, onBack, toast, session }) {
                     <div className="card" style={{ marginTop: 14 }}>
                         <div className="card-head">
                             <div className="card-title">Fail2ban</div>
+                            <span className="mono">封禁 / 解封需审批</span>
                         </div>
                         {m.fail2ban && m.fail2ban.installed ? (
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Jail</th>
-                                        <th>当前封禁</th>
-                                        <th>累计封禁</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(m.fail2ban.jails || []).map((j) => (
-                                        <tr key={j.name}>
-                                            <td>{j.name}</td>
-                                            <td>{j.currentlyBanned}</td>
-                                            <td>{j.totalBanned}</td>
+                            <>
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Jail</th>
+                                            <th>当前封禁</th>
+                                            <th>累计封禁</th>
+                                            <th>封禁 IP（最近）</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {(m.fail2ban.jails || []).map((j) => (
+                                            <tr key={j.name}>
+                                                <td>{j.name}</td>
+                                                <td>{j.currentlyBanned}</td>
+                                                <td>{j.totalBanned}</td>
+                                                <td className="mono">
+                                                    {(j.bannedIps || []).length
+                                                        ? j.bannedIps.map((ip) => (
+                                                              <button
+                                                                  key={ip}
+                                                                  className="btn btn-sm"
+                                                                  style={{ marginRight: 4, marginBottom: 4, padding: '2px 7px' }}
+                                                                  title="点击解封该 IP"
+                                                                  onClick={() => {
+                                                                      setF2bForm({ jail: j.name, ip });
+                                                                      submitF2b('fail2ban.unban');
+                                                                  }}
+                                                              >
+                                                                  {ip}
+                                                              </button>
+                                                          ))
+                                                        : '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                <div className="row" style={{ marginTop: 12 }}>
+                                    <input
+                                        className="input"
+                                        style={{ maxWidth: 150 }}
+                                        placeholder="jail（如 sshd）"
+                                        value={f2bForm.jail}
+                                        onChange={(e) => setF2bForm({ ...f2bForm, jail: e.target.value })}
+                                    />
+                                    <input
+                                        className="input"
+                                        style={{ maxWidth: 190 }}
+                                        placeholder="IP 地址"
+                                        value={f2bForm.ip}
+                                        onChange={(e) => setF2bForm({ ...f2bForm, ip: e.target.value })}
+                                    />
+                                    <button className="btn btn-sm btn-danger" onClick={() => submitF2b('fail2ban.ban')}>
+                                        封禁
+                                    </button>
+                                    <button className="btn btn-sm" onClick={() => submitF2b('fail2ban.unban')}>
+                                        解封
+                                    </button>
+                                </div>
+                            </>
                         ) : (
                             <div className="empty" style={{ padding: 12 }}>未安装 fail2ban</div>
                         )}
+                    </div>
+                </>
+            )}
+
+            {tab === 'logs' && (
+                <>
+                    <div className="card">
+                        <div className="card-head">
+                            <div className="card-title">日志文件</div>
+                            <button className="btn btn-sm btn-primary" onClick={loadLogFiles} disabled={logBusy}>
+                                {logBusy ? '获取中…' : '刷新列表'}
+                            </button>
+                        </div>
+                        {logFiles.length ? (
+                            <div className="row" style={{ gap: 6 }}>
+                                {logFiles.map((f) => (
+                                    <button
+                                        key={f.path}
+                                        className={`btn btn-sm ${logPath === f.path ? 'btn-primary' : ''}`}
+                                        title={`${f.path}\n${(f.size / 1024).toFixed(0)} KB`}
+                                        onClick={() => openLog(f.path, 200)}
+                                    >
+                                        {f.path.split('/').pop()} <span className="mono">{f.group}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="empty" style={{ padding: 12 }}>
+                                点击「刷新列表」从节点读取可查看的日志（自动执行，无需审批）
+                            </div>
+                        )}
+                    </div>
+                    <div className="card" style={{ marginTop: 14 }}>
+                        <div className="card-head">
+                            <div className="card-title">{logPath || '日志内容'}</div>
+                            <div className="row">
+                                {[100, 200, 500].map((n) => (
+                                    <button key={n} className="btn btn-sm" disabled={!logPath || logBusy} onClick={() => openLog(logPath, n)}>
+                                        {n} 行
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <pre className="pre">{logText || '（选择上方的日志文件查看内容）'}</pre>
                     </div>
                 </>
             )}

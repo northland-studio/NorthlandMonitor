@@ -1,0 +1,26 @@
+{
+  "name": "北域工作室 · 服务器监控",
+  "short_name": "北域监控",
+  "description": "Northland Studio 服务器统一监控面板",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a1222",
+  "theme_color": "#0a1222",
+  "lang": "zh-CN",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-white-bg.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

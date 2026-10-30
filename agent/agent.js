@@ -269,7 +269,20 @@ async function fail2ban() {
             const detail = await sh(`fail2ban-client status ${jail} 2>/dev/null`);
             const banned = /Currently banned:\s*(\d+)/.exec(detail);
             const total = /Total banned:\s*(\d+)/.exec(detail);
-            jails.push({ name: jail, currentlyBanned: banned ? Number(banned[1]) : 0, totalBanned: total ? Number(total[1]) : 0 });
+            const listMatch = /Banned IP list:\s*(.*)/.exec(detail);
+            const bannedIps = listMatch
+                ? listMatch[1]
+                      .split(/\s+/)
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .slice(0, 30)
+                : [];
+            jails.push({
+                name: jail,
+                currentlyBanned: banned ? Number(banned[1]) : 0,
+                totalBanned: total ? Number(total[1]) : 0,
+                bannedIps
+            });
         }
     }
     return { installed: true, jails };
@@ -436,6 +449,39 @@ const ACTIONS = {
             if (!t.endsWith('/')) return '目标必须以 / 结尾';
             const out = await sh(`find ${JSON.stringify(t)} -maxdepth 1 -type f -mtime +${keep} -delete -print 2>/dev/null | wc -l`, 30000);
             return `已清理 ${out.trim()} 个超过 ${keep} 天的文件`;
+        }
+    },
+    'log.list': {
+        validate: () => true,
+        run: async () => {
+            const rows = [];
+            const listDir = async (dir, label) => {
+                const out = await sh(`find ${JSON.stringify(dir)} -maxdepth 1 -type f -name '*.log' -size -50M 2>/dev/null | head -40`);
+                for (const f of out.split('\n').map((s) => s.trim()).filter(Boolean)) {
+                    const stat = await sh(`stat -c '%s %Y' ${JSON.stringify(f)} 2>/dev/null`);
+                    const [size, mtime] = stat.trim().split(/\s+/);
+                    rows.push({ path: f, group: label, size: Number(size) || 0, mtime: Number(mtime) * 1000 || 0 });
+                }
+            };
+            await listDir('/var/log', '系统日志');
+            await listDir('/root/.pm2/logs', 'PM2 日志');
+            await listDir('/var/www', '站点日志');
+            rows.sort((a, b) => b.mtime - a.mtime);
+            return JSON.stringify(rows.slice(0, 60));
+        }
+    },
+    'fail2ban.ban': {
+        validate: (p) => /^[a-zA-Z0-9_.-]{1,40}$/.test(String(p.jail || '')) && /^[0-9a-fA-F.:]{3,45}$/.test(String(p.ip || '')),
+        run: async (p) => {
+            const out = await sh(`fail2ban-client set ${p.jail} banip ${p.ip} 2>&1`, 20000);
+            return out.trim() || '已执行封禁';
+        }
+    },
+    'fail2ban.unban': {
+        validate: (p) => /^[a-zA-Z0-9_.-]{1,40}$/.test(String(p.jail || '')) && /^[0-9a-fA-F.:]{3,45}$/.test(String(p.ip || '')),
+        run: async (p) => {
+            const out = await sh(`fail2ban-client set ${p.jail} unbanip ${p.ip} 2>&1`, 20000);
+            return out.trim() || '已执行解封';
         }
     },
     'system.info': {

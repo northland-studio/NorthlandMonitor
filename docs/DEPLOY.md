@@ -72,7 +72,14 @@ systemctl disable --now xuanjian-agent
 
 建议加入官网每日备份脚本（`/var/www/xuanjian-guild/scripts/backup-to-qiniu.js` 同类逻辑）。
 
-## 7. 安全边界
+## 7. 旧版面板（legacy）
+
+旧面板 `/var/www/monitor`（pm2 `monitor`，:3002）保留，用于 PostgreSQL 管理 / AI 日志分析 / 文件管理 / Superskin 等功能：
+
+- 入口：`https://monitor.xuanjian.top/legacy/`（nginx 反代到 3002，包含 WebSocket 升级头，支持旧版实时日志流）
+- 下线：删除 nginx `monitor` 站点里的 `location /legacy/` 段 → `nginx -t && systemctl reload nginx` → `pm2 delete monitor`
+
+## 8. 安全边界
 
 - Agent 不监听端口，只出站 HTTPS
 - 注册使用一次性 Token（10 分钟，用过即废）

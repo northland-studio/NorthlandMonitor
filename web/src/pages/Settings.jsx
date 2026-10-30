@@ -88,6 +88,7 @@ export default function Settings({ toast, session }) {
                     {[
                         ['alerts', '告警与采集'],
                         ['smtp', '邮件通知'],
+                        ['report', '定时日报'],
                         ['operators', '运维人员'],
                         ['audit', '审计日志']
                     ].map(([k, label]) => (
@@ -205,6 +206,73 @@ export default function Settings({ toast, session }) {
                         </table>
                     </div>
                 </>
+            )}
+
+            {tab === 'report' && (
+                <div className="card">
+                    <div className="card-head">
+                        <div className="card-title">定时日报</div>
+                        <div className="row">
+                            <button
+                                className="btn btn-primary btn-sm"
+                                disabled={busy || !isAdmin}
+                                onClick={async () => {
+                                    setBusy(true);
+                                    try {
+                                        await api.put('/api/settings', {
+                                            settings: { 'report.enabled': settings['report.enabled'] ?? '1', 'report.hour': settings['report.hour'] ?? '9' }
+                                        });
+                                        toast('日报设置已保存', 'ok');
+                                        await load();
+                                    } catch (e) {
+                                        toast(e.message, 'bad');
+                                    } finally {
+                                        setBusy(false);
+                                    }
+                                }}
+                            >
+                                保存
+                            </button>
+                            <button
+                                className="btn btn-sm"
+                                disabled={!isAdmin}
+                                onClick={async () => {
+                                    try {
+                                        const r = await api.post('/api/report/send', {});
+                                        toast('日报已发送至 ' + (r.to || '收件人'), 'ok');
+                                    } catch (e) {
+                                        toast(e.message, 'bad');
+                                    }
+                                }}
+                            >
+                                立即发送一份
+                            </button>
+                        </div>
+                    </div>
+                    <div className="grid grid-2">
+                        <div className="field">
+                            <label>是否启用（1 启用 / 0 关闭）</label>
+                            <input
+                                className="input"
+                                value={settings['report.enabled'] ?? '1'}
+                                disabled={!isAdmin}
+                                onChange={(e) => setSettings({ ...settings, 'report.enabled': e.target.value })}
+                            />
+                        </div>
+                        <div className="field">
+                            <label>每天发送时间（0-23 点）</label>
+                            <input
+                                className="input"
+                                value={settings['report.hour'] ?? '9'}
+                                disabled={!isAdmin}
+                                onChange={(e) => setSettings({ ...settings, 'report.hour': e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <p className="mono" style={{ marginTop: 10 }}>
+                        日报内容：各节点状态、24h 平均/峰值 CPU、平均内存、最大磁盘、未处理告警列表。收件人使用「邮件通知」里的告警收件人。
+                    </p>
+                </div>
             )}
 
             {tab === 'audit' && (

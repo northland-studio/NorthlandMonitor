@@ -8,6 +8,7 @@ const express = require('express');
 const { db, getSettings, setSetting } = require('../db');
 const { requireAuth, requireAdmin, sendLoginCode, verifyLoginCode, setSessionCookie, clearSessionCookie, sessionFromReq, sha256 } = require('../auth');
 const alerter = require('../services/alerter');
+const reporter = require('../services/reporter');
 
 const router = express.Router();
 
@@ -184,16 +185,39 @@ router.get('/actions', requireAuth, (req, res) => {
     res.json({ ok: true, actions: rows });
 });
 
+router.get('/actions/:id', requireAuth, (req, res) => {
+    const row = db.prepare('SELECT * FROM actions WHERE id = ?').get(Number(req.params.id));
+    if (!row) return res.status(404).json({ ok: false, error: '动作不存在' });
+    res.json({ ok: true, action: row });
+});
+
+/** 只读动作：不需要审批，提交即生效（仍全量审计） */
+const READONLY_ACTIONS = new Set(['log.tail', 'log.list', 'system.info']);
+
 router.post('/actions', requireAuth, (req, res) => {
     const { serverId, type, params, reason } = req.body || {};
     if (!serverId || !type) return res.status(400).json({ ok: false, error: '缺少 serverId 或 type' });
     const s = db.prepare('SELECT * FROM servers WHERE id = ?').get(Number(serverId));
     if (!s) return res.status(404).json({ ok: false, error: '节点不存在' });
+    const auto = READONLY_ACTIONS.has(String(type));
     const info = db
-        .prepare("INSERT INTO actions (server_id, type, params, status, reason, requested_by, created_at) VALUES (?, ?, ?, 'pending', ?, ?, ?)")
-        .run(Number(serverId), String(type), JSON.stringify(params || {}), String(reason || ''), req.session.email, Date.now());
-    audit(req, 'action.request', `${serverId}/${type}`, params);
-    res.json({ ok: true, id: info.lastInsertRowid, status: 'pending' });
+        .prepare(
+            `INSERT INTO actions (server_id, type, params, status, reason, requested_by, created_at, approved_by, approved_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+            Number(serverId),
+            String(type),
+            JSON.stringify(params || {}),
+            auto ? 'approved' : 'pending',
+            String(reason || ''),
+            req.session.email,
+            Date.now(),
+            auto ? 'system:auto' : null,
+            auto ? Date.now() : null
+        );
+    audit(req, auto ? 'action.auto' : 'action.request', `${serverId}/${type}`, params);
+    res.json({ ok: true, id: info.lastInsertRowid, status: auto ? 'approved' : 'pending', auto });
 });
 
 router.post('/actions/:id/approve', requireAuth, (req, res) => {
@@ -292,12 +316,24 @@ router.put('/settings', requireAdmin, (req, res) => {
     const written = [];
     for (const [k, v] of Object.entries(patch)) {
         if (k === 'smtp.pass' && String(v) === '******') continue;
-        if (!/^(alert|metric|smtp|notify)\./.test(k)) continue;
+        if (!/^(alert|metric|smtp|notify|report)\./.test(k)) continue;
         setSetting(k, v);
         written.push(k);
     }
     audit(req, 'settings.update', '', { keys: written });
     res.json({ ok: true, written });
+});
+
+/* ---------------- 定时日报 ---------------- */
+
+router.get('/report/preview', requireAuth, (req, res) => {
+    res.json({ ok: true, ...reporter.collectSummary() });
+});
+
+router.post('/report/send', requireAdmin, async (req, res) => {
+    const r = await reporter.sendReport({ force: true });
+    audit(req, 'report.send', '', r);
+    res.status(r.ok ? 200 : 500).json(r);
 });
 
 router.get('/stats', requireAuth, (req, res) => {

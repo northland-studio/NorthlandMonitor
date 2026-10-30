@@ -6,6 +6,27 @@ Northland Studio 的多服务器监控与运维面板。替代原单体 `monitor
 - 主控部署：HK `64.90.13.2` → `/var/www/monitor-v2`（pm2 `monitor-v2`，端口 3004）
 - 已接入节点：HK 主控（官网）、115 Web 服务器、群机器人服务器
 
+## 功能清单
+
+| 模块 | 说明 |
+| --- | --- |
+| 节点总览 | CPU / 内存 / 磁盘 / 网络 / 负载 / PM2 / systemd 实时状态，10 秒刷新 |
+| 单机详情 | 1h~30d 趋势曲线、进程 Top、systemd 服务列表、fail2ban、日志、远程操作 |
+| 日志查看 | 自动列出各节点上 38+ 个日志文件（系统 / PM2 / 站点），支持 100/200/500 行查看（只读动作免审批） |
+| Fail2ban | 实时封禁统计 + 封禁 IP 列表，点击 IP 即可发起解封；手动封禁/解封需审批 |
+| 远程操作 | 重启 systemd/pm2、清理旧文件、系统概览；白名单 + 审批 + 审计 |
+| 告警 | CPU/内存/磁盘/负载/服务失败/离线，邮件通知 + 冷却去重 |
+| 定时日报 | 每天固定时间发送集群概览 + 24h 峰值 + 未处理告警，支持手动立即发送 |
+| PWA | manifest + Service Worker，可「添加到主屏幕」当独立应用使用 |
+| 旧版兼容 | 旧面板保留在 /legacy/（PostgreSQL 管理、AI 日志分析、文件管理、Superskin） |
+
+## 旧版功能保留
+
+旧版 monitor 仍以 pm2 `monitor` 运行在 3002，通过 nginx 的 `/legacy/` 路径反代暴露：
+
+- 入口：https://monitor.xuanjian.top/legacy/
+- 下线：删掉 nginx `monitor` 站点里的 `location /legacy/` 段 → `nginx -t && systemctl reload nginx` → `pm2 delete monitor`
+
 ## 架构
 
 ```
